@@ -16,6 +16,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
+import DashboardScreen from "../screens/DashboardScreen";
+import { useRouter } from "expo-router";
 
 const tabs = ["Dashboard", "Ventas", "Inventario", "Compras", "Reportes"];
 
@@ -52,9 +54,7 @@ function MovingWave() {
       const y =
         height / 2 +
         amplitude *
-          Math.sin(
-            frequency * 2 * Math.PI * (i / points) + offset.value
-          );
+          Math.sin(frequency * 2 * Math.PI * (i / points) + offset.value);
       path += ` L${x},${y}`;
     }
     // Cierra el path para rellenar debajo de la onda
@@ -73,10 +73,7 @@ function MovingWave() {
       }}
     >
       <Svg width={screenW} height={height}>
-        <AnimatedPath
-          animatedProps={animatedProps}
-          fill="#f5f5f4"
-        />
+        <AnimatedPath animatedProps={animatedProps} fill="#f5f5f4" />
       </Svg>
     </View>
   );
@@ -91,6 +88,7 @@ type Props = {
 
 export default function Header({ onTabChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const router = useRouter();
   const tabLayouts = useRef<{ x: number; width: number }[]>([]);
   const indicatorX = useSharedValue(0);
   const indicatorWidth = useSharedValue(0);
@@ -111,6 +109,8 @@ export default function Header({ onTabChange }: Props) {
       indicatorX.value = withTiming(layout.x, { duration: 300 });
       indicatorWidth.value = withTiming(layout.width, { duration: 300 });
     }
+    const route = "/" + tabs[idx].toLowerCase();
+    router.replace(route as any);
     onTabChange?.(tabs[idx].toLowerCase());
   };
 
