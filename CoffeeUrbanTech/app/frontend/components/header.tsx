@@ -1,8 +1,10 @@
 // Header.tsx
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
+  Image,
   LayoutChangeEvent,
   Text,
   TouchableOpacity,
@@ -16,8 +18,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
-import DashboardScreen from "../screens/DashboardScreen";
-import { useRouter } from "expo-router";
 
 const tabs = ["Dashboard", "Ventas", "Inventario", "Compras", "Reportes"];
 
@@ -31,16 +31,16 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 function MovingWave() {
   const { width: screenW } = Dimensions.get("window");
-  const height = 36;
-  const amplitude = 12; // Profundidad de la onda
-  const frequency = 2; // Número de ondas completas en el ancho
-  const points = 80; // Más puntos = onda más suave
+  const height = 59;
+  const amplitude = 10; // Profundidad de la onda
+  const frequency = 1; // Número de ondas completas en el ancho
+  const points = 200; // Más puntos = onda más suave
 
   const offset = useSharedValue(0);
 
   useEffect(() => {
     offset.value = withRepeat(
-      withTiming(2 * Math.PI, { duration: 3500 }),
+      withTiming(2 * Math.PI, { duration: 4000 }),
       -1,
       false
     );
@@ -123,15 +123,24 @@ export default function Header({ onTabChange }: Props) {
     <View className="w-full bg-white shadow-md  overflow-hidden">
       <View className="relative">
         <LinearGradient
-          colors={["#6A4E37", "#8B4513", "#D2B48C"]}
-          className="px-6 py-8 items-center "
+          colors={["#D17F45", "#914E31", "#8B4513"]}
+          className="px-4 py-1 items-center "
         >
-          <Text className="text-white text-[26px] font-extrabold tracking-tight mb-1">
-            ☕ Coffee UrbanTech
-          </Text>
-          <Text className="text-white text-sm opacity-80 font-light">
-            Gestión inteligente para tu restaurante
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 1 }}>
+            <Image
+              source={require("../../../assets/images/java.png")}
+              style={{ width: 150, height: 150, marginRight: 16 }}
+              resizeMode="contain"
+            />
+            <View>
+              <Text className="text-white text-[26px] font-extrabold tracking-tight">
+                Coffee UrbanTech
+              </Text>
+              <Text className="text-white text-sm opacity-80 font-light">
+                Gestión inteligente para tu restaurante
+              </Text>
+            </View>
+          </View>
         </LinearGradient>
 
         {/* Aquí va la onda animada */}
