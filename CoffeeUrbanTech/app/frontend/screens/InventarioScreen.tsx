@@ -1,7 +1,9 @@
 import { Picker } from "@react-native-picker/picker";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -10,48 +12,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-const initialProducts = [
-  {
-    id: 1,
-    name: "Café",
-    description: "Café en grano premium",
-    price: 120,
-    costo: 80,
-    stock: 8,
-    category: "Bebidas",
-    tipo: "Materia prima", // Nuevo campo
-  },
-  {
-    id: 2,
-    name: "Té",
-    description: "Té verde importado",
-    price: 80,
-    costo: 50,
-    stock: 15,
-    category: "Bebidas",
-    tipo: "Materia prima",
-  },
-];
-
-type Product = {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  costo: number;
-  stock: number;
-  category: string;
-  tipo: string; // Nuevo campo
-};
+import { db } from '../../../firebaseConfigWeb.js';
+import { Product } from "../../firebaseData";
 
 const categoriasPorTipo: Record<string, string[]> = {
-  "Producto de cocina": ["Comida", "Postres", "Otros"],
-  "Materia prima": ["Bebidas", "Ingredientes", "Otros"],
+  "Producto de cocina": ["Comida", "Postres", "Bebidas Preparadas", "Otros"],
+  "Materia prima": ["Bebidas", "Ingredientes", "Envasados", "Otros"],
 };
 
 export default function InventarioScreen() {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -59,13 +29,43 @@ export default function InventarioScreen() {
     name: "",
     description: "",
     price: "",
-    costo: "",
+    unitCost: "",
     stock: "",
     category: "Comida",
-    tipo: "Producto de cocina", // Valor por defecto
+    productType: "Producto de cocina",
+    inMenu: false,
   });
 
   const SUGERENCIA_UTILIDAD = 0.4; // 40% de utilidad sugerida
+
+  // Nuevo: useEffect para leer productos de Firestore
+  useEffect(() => {
+    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const productsData: Product[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        productsData.push({
+          id: doc.id,
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          unitCost: data.unitCost,
+          stock: data.stock,
+          category: data.category,
+          productType: data.productType,
+          suggestedPrice: data.suggestedPrice || null,
+          inMenu: data.inMenu || false,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
+          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : null,
+        });
+      });
+      setProducts(productsData);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const filteredProducts = products.filter(
     (product) =>
@@ -73,47 +73,118 @@ export default function InventarioScreen() {
       product.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Agrupa productos por tipo
   const groupedProducts = {
-    "Producto de cocina": filteredProducts.filter((p) => p.tipo === "Producto de cocina"),
-    "Materia prima": filteredProducts.filter((p) => p.tipo === "Materia prima"),
+    "Producto de cocina": filteredProducts.filter((p) => p.productType === "Producto de cocina"),
+    "Materia prima": filteredProducts.filter((p) => p.productType === "Materia prima"),
   };
 
-  const handleAddProduct = () => {
-    const product = {
-      id: Date.now(),
-      name: newProduct.name,
-      description: newProduct.description,
-      price: parseFloat(newProduct.price),
-      costo: parseFloat(newProduct.costo),
-      stock: parseInt(newProduct.stock),
-      category: newProduct.category,
-      tipo: newProduct.tipo,
-    };
-    setProducts([...products, product]);
-    setNewProduct({
-      name: "",
-      description: "",
-      price: "",
-      costo: "",
-      stock: "",
-      category: categoriasPorTipo[newProduct.tipo][0],
-      tipo: "Producto de cocina",
-    });
-    setShowAddModal(false);
+  const handleAddProduct = async () => {
+    if (!newProduct.name || !newProduct.price || !newProduct.unitCost || !newProduct.stock) {
+      Alert.alert("Error", "Por favor, rellena todos los campos obligatorios: Nombre, Precio, Costo y Stock.");
+      return;
+    }
+
+    try {
+      const productData = {
+        name: newProduct.name,
+        description: newProduct.description,
+        price: parseFloat(newProduct.price),
+        unitCost: parseFloat(newProduct.unitCost),
+        stock: parseInt(newProduct.stock),
+        category: newProduct.category,
+        productType: newProduct.productType,
+        inMenu: newProduct.inMenu,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        suggestedPrice: parseFloat(newProduct.price),
+      };
+
+      await addDoc(collection(db, "products"), productData);
+      Alert.alert("Producto agregado.");
+
+      setNewProduct({
+        name: "",
+        description: "",
+        price: "",
+        unitCost: "",
+        stock: "",
+        category: "Comida",
+        productType: "Producto de cocina",
+        inMenu: false,
+      });
+      setShowAddModal(false);
+    } catch (error) {
+      Alert.alert("Error. Hubo un problema al agregar el producto.");
+    }
   };
 
-  const handleEditProduct = () => {
-    if (!editingProduct) return;
-    const updatedProducts = products.map((p) =>
-      p.id === editingProduct.id ? editingProduct : p
+  const handleEditProduct = async () => {
+    if (!editingProduct || !editingProduct.id) {
+      Alert.alert("No hay producto seleccionado.");
+      return;
+    }
+
+    if (!editingProduct.name || !editingProduct.price || !editingProduct.unitCost || !editingProduct.stock) {
+      Alert.alert("Error, rellena los campos: Nombre, Precio, Costo y Stock.");
+      return;
+    }
+
+    try {
+      const productRef = doc(db, "products", editingProduct.id);
+      
+      const updatedData = {
+        name: editingProduct.name,
+        description: editingProduct.description,
+        price: parseFloat(editingProduct.price.toString()),
+        unitCost: parseFloat(editingProduct.unitCost.toString()),
+        stock: parseInt(editingProduct.stock.toString()),
+        category: editingProduct.category,
+        productType: editingProduct.productType,
+        inMenu: editingProduct.inMenu,
+        updatedAt: serverTimestamp(),
+        suggestedPrice: parseFloat(editingProduct.suggestedPrice?.toString() || '0'),
+      };
+
+      await updateDoc(productRef, updatedData);
+      Alert.alert("Producto actualizado.");
+      setEditingProduct(null);
+    } catch (error) {
+      Alert.alert("Error. Por favor, intenta de nuevo.");
+    }
+  };
+
+
+  const deleteProduct = async (productId: string) => { 
+    console.log("Eliminando...");
+    Alert.alert(
+      "Confirmar Eliminación",
+      "¿Estás seguro de que quieres eliminar este producto? Esta acción es irreversible.",
+      [
+        {
+          text: "Cancelar",
+          onPress: () => console.log("Eliminación cancelada"),
+          style: "cancel",
+        },
+        {
+          text: "Eliminar",
+          onPress: async () => { 
+            try {
+              // Referencia al documento en Firestore
+              const productRef = doc(db, "products", productId);
+
+              // Elimina el documento de Firestore
+              await deleteDoc(productRef);
+              Alert.alert("Producto eliminado correctamente.");
+
+            } catch (error) {
+              Alert.alert("Hubo un problema al eliminar el producto. Inténtalo de nuevo.");
+            }
+          },
+          style: "destructive",
+        },
+      ],
+      { cancelable: true }
     );
-    setProducts(updatedProducts);
-    setEditingProduct(null);
-  };
-
-  const deleteProduct = (productId: number) => {
-    setProducts(products.filter((p) => p.id !== productId));
   };
 
   function redondearPrecio(precio: number) {
@@ -122,19 +193,39 @@ export default function InventarioScreen() {
 
   const handleCostoChange = (v: string) => {
     if (!v) {
-      setNewProduct((prev) => ({ ...prev, costo: "", price: "" }));
+      setNewProduct((prev) => ({ ...prev, unitCost: "", price: "" }));
       return;
     }
     const costo = parseFloat(v.replace(",", "."));
     if (isNaN(costo)) {
-      setNewProduct((prev) => ({ ...prev, costo: v, price: "" }));
+      setNewProduct((prev) => ({ ...prev, unitCost: v, price: "" }));
       return;
     }
     const precioSugerido = redondearPrecio(costo * (1 + SUGERENCIA_UTILIDAD)).toString();
     setNewProduct((prev) => ({
       ...prev,
-      costo: v,
+      unitCost: v,
       price: precioSugerido,
+    }));
+  };
+
+  const handleEditCostoChange = (v: string) => {
+    if (!editingProduct) return;
+    if (!v) {
+      setEditingProduct((prev) => ({ ...prev!, unitCost: 0, price: 0, suggestedPrice: 0 }));
+      return;
+    }
+    const costo = parseFloat(v.replace(",", "."));
+    if (isNaN(costo)) {
+      setEditingProduct((prev) => ({ ...prev!, unitCost: 0 }));
+      return;
+    }
+    const precioSugerido = redondearPrecio(costo * (1 + SUGERENCIA_UTILIDAD));
+    setEditingProduct((prev) => ({
+      ...prev!,
+      unitCost: costo,
+      price: precioSugerido,
+      suggestedPrice: precioSugerido,
     }));
   };
 
@@ -172,23 +263,21 @@ export default function InventarioScreen() {
           />
         </View>
 
-        {/* Mostrar productos agrupados */}
-        {Object.entries(groupedProducts).map(([tipo, productos]) => (
-          <View key={tipo} className="mb-10">
-            {/* Encabezado visual destacado */}
+        {Object.entries(groupedProducts).map(([productType, productos]) => (
+          <View key={productType} className="mb-10">
             <View
               className={`flex-row items-center mb-4 px-4 py-2 rounded-lg ${
-                tipo === "Producto de cocina"
+                productType === "Producto de cocina"
                   ? "bg-amber-100 border-l-8 border-amber-700"
                   : "bg-green-100 border-l-8 border-green-700"
               }`}
             >
               <Text
                 className={`text-xl font-extrabold ${
-                  tipo === "Producto de cocina" ? "text-amber-800" : "text-green-800"
+                  productType === "Producto de cocina" ? "text-amber-800" : "text-green-800"
                 }`}
               >
-                {tipo === "Producto de cocina" ? "🍳 Productos de cocina" : "🌱 Materias primas"}
+                {productType === "Producto de cocina" ? "🍳 Productos de cocina" : "🌱 Materias primas"}
               </Text>
             </View>
             {productos.length === 0 && (
@@ -207,20 +296,50 @@ export default function InventarioScreen() {
                     <Text className="text-gray-600 text-sm">
                       {product.description}
                     </Text>
-                    <Text className="text-sm mt-2">
-                      <Text className="font-bold">Precio venta:</Text> ${product.price.toFixed(2)} |{" "}
-                      <Text className="font-bold">Costo:</Text> ${product.costo.toFixed(2)} |{" "}
-                      <Text className="font-bold">Utilidad:</Text>{" "}
-                      <Text className={product.price - product.costo < 0 ? "text-red-500" : "text-green-700"}>
-                        ${ (product.price - product.costo).toFixed(2) }
+                    <View className="text-sm mt-2">
+                      <Text>
+                        <Text className="font-bold">Precio venta:</Text> ${product.price.toFixed(2)}
                       </Text>
-                      {" | "}
-                      <Text className="font-bold">Stock:</Text>{" "}
-                      <Text className={product.stock < 10 ? "text-red-500" : ""}>
-                        {product.stock}
-                      </Text>{" "}
-                      | <Text className="font-bold">Categoría:</Text> {product.category}
-                    </Text>
+                      <Text>
+                        <Text className="font-bold">Costo:</Text> ${product.unitCost.toFixed(2)}
+                      </Text>
+                      <Text>
+                        <Text className={product.price - product.unitCost < 0 ? "text-red-500" : "text-green-700"}>
+                            <Text className="font-bold text-gray-800">Utilidad:</Text>{" "}
+                          ${(product.price - product.unitCost).toFixed(2)}
+                        </Text>
+                      </Text>
+                      <Text>
+                        <Text className="font-bold">Stock:</Text>{" "}
+                        <Text className={product.stock < 10 ? "text-red-500" : ""}>
+                          {product.stock}
+                        </Text>
+                      </Text>
+                      <Text>
+                        <Text className="font-bold">Categoría:</Text> {product.category}
+                      </Text>
+                      <Text>
+                        <Text className="font-bold">Tipo:</Text> {product.productType}
+                      </Text>
+                      {product.suggestedPrice !== null && (
+                        <Text>
+                          <Text className="font-bold">Sugerido:</Text> ${product.suggestedPrice?.toFixed(2)}
+                        </Text>
+                      )}
+                      <Text>
+                        <Text className="font-bold">En Menú:</Text> {product.inMenu ? "Sí" : "No"}
+                      </Text>
+                      {product.createdAt && (
+                        <Text>
+                          <Text className="font-bold">Creado:</Text> {product.createdAt?.toDate().toLocaleDateString()}
+                        </Text>
+                      )}
+                      {product.updatedAt && (
+                        <Text>
+                          <Text className="font-bold">Actualizado:</Text> {product.updatedAt?.toDate().toLocaleDateString()}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                   <View className="flex flex-row gap-2 ml-2">
                     <TouchableOpacity
@@ -230,7 +349,7 @@ export default function InventarioScreen() {
                       <Text className="text-white text-sm">Editar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => deleteProduct(product.id)}
+                      onPress={() => {console.log(product.id);deleteProduct(product.id)}}
                       className="bg-red-500 px-3 py-1 rounded"
                     >
                       <Text className="text-white text-sm">Eliminar</Text>
@@ -239,13 +358,10 @@ export default function InventarioScreen() {
                 </View>
               </View>
             ))}
-            {/* Línea divisoria visual entre categorías */}
             <View className="h-1 bg-gray-200 rounded-full mt-6 mb-2" />
           </View>
         ))}
       </View>
-
-      {/* Modal Agregar Producto */}
       <Modal visible={showAddModal} transparent animationType="fade">
         <View className="flex-1 bg-black/50 justify-center items-center">
           <View className="bg-white rounded-xl p-6 w-11/12 max-w-md">
@@ -274,12 +390,12 @@ export default function InventarioScreen() {
                 multiline
               />
 
-              <Text className="mb-2 font-bold">Costo ($)</Text>
+              <Text className="mb-2 font-bold">Costo por unidad ($)</Text>
               <TextInput
-                value={newProduct.costo}
+                value={newProduct.unitCost}
                 onChangeText={handleCostoChange}
                 className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4"
-                placeholder="Costo"
+                placeholder="Costo por unidad"
                 keyboardType="numeric"
               />
               
@@ -299,7 +415,7 @@ export default function InventarioScreen() {
                 </Text>
               </View>
               <Text className="text-xs text-gray-500 mb-2">
-                El precio sugerido es un {SUGERENCIA_UTILIDAD * 100}% sobre el costo.
+                El precio sugerido es un {SUGERENCIA_UTILIDAD * 100}% sobre el costo por unidad.
               </Text>
               <Text className="mb-2 font-bold">Stock Inicial</Text>
               <TextInput
@@ -309,15 +425,15 @@ export default function InventarioScreen() {
                 placeholder="Stock"
                 keyboardType="numeric"
               />
-              <Text className="mb-2 font-bold">Tipo</Text>
+              <Text className="mb-2 font-bold">Tipo de Producto</Text>
               <View className="border-2 border-gray-300 rounded-lg mb-4">
                 <Picker
-                  selectedValue={newProduct.tipo}
+                  selectedValue={newProduct.productType}
                   onValueChange={(v) => {
                     setNewProduct({
                       ...newProduct,
-                      tipo: v,
-                      category: categoriasPorTipo[v][0], // Cambia la categoría al primer valor disponible
+                      productType: v,
+                      category: categoriasPorTipo[v][0],
                     });
                   }}
                   style={{ height: 40 }}
@@ -335,9 +451,22 @@ export default function InventarioScreen() {
                   }
                   style={{ height: 40 }}
                 >
-                  {categoriasPorTipo[newProduct.tipo].map((cat) => (
+                  {categoriasPorTipo[newProduct.productType].map((cat) => (
                     <Picker.Item key={cat} label={cat} value={cat} />
                   ))}
+                </Picker>
+              </View>
+              <Text className="mb-2 font-bold">¿En el Menú?</Text>
+              <View className="border-2 border-gray-300 rounded-lg mb-4">
+                <Picker
+                  selectedValue={newProduct.inMenu ? "true" : "false"}
+                  onValueChange={(v) =>
+                    setNewProduct({ ...newProduct, inMenu: v === "true" })
+                  }
+                  style={{ height: 40 }}
+                >
+                  <Picker.Item label="Sí" value="true" />
+                  <Picker.Item label="No" value="false" />
                 </Picker>
               </View>
 
@@ -362,7 +491,6 @@ export default function InventarioScreen() {
         </View>
       </Modal>
 
-      {/* Modal Editar Producto */}
       <Modal visible={!!editingProduct} transparent animationType="fade">
         <View className="flex-1 bg-black/50 justify-center items-center">
           <View className="bg-white rounded-xl p-6 w-11/12 max-w-md">
@@ -393,6 +521,14 @@ export default function InventarioScreen() {
                   placeholder="Descripción"
                   multiline
                 />
+                <Text className="mb-2 font-bold">Costo por unidad ($)</Text>
+                <TextInput
+                  value={String(editingProduct.unitCost)}
+                  onChangeText={handleEditCostoChange}
+                  className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4"
+                  placeholder="Costo por unidad"
+                  keyboardType="numeric"
+                />
                 <Text className="mb-2 font-bold">Precio venta ($)</Text>
                 <TextInput
                   value={String(editingProduct.price)}
@@ -406,19 +542,15 @@ export default function InventarioScreen() {
                   placeholder="Precio venta"
                   keyboardType="numeric"
                 />
-                <Text className="mb-2 font-bold">Costo ($)</Text>
-                <TextInput
-                  value={String(editingProduct.costo)}
-                  onChangeText={(v) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      costo: parseFloat(v) || 0,
-                    })
-                  }
-                  className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4"
-                  placeholder="Costo"
-                  keyboardType="numeric"
-                />
+                <Text className="mb-2 font-bold">Precio venta sugerido ($)</Text>
+                <View className="w-full p-3 border-2 border-gray-300 rounded-lg mb-4 bg-gray-100">
+                  <Text className="text-lg text-gray-700">
+                    {editingProduct.suggestedPrice !== null ? `$${editingProduct.suggestedPrice?.toFixed(2)}` : "--"}
+                  </Text>
+                </View>
+                <Text className="text-xs text-gray-500 mb-2">
+                  El precio sugerido es un {SUGERENCIA_UTILIDAD * 100}% sobre el costo por unidad.
+                </Text>
                 <Text className="mb-2 font-bold">Stock</Text>
                 <TextInput
                   value={String(editingProduct.stock)}
@@ -432,13 +564,18 @@ export default function InventarioScreen() {
                   placeholder="Stock"
                   keyboardType="numeric"
                 />
-                <Text className="mb-2 font-bold">Tipo</Text>
+                <Text className="mb-2 font-bold">Tipo de Producto</Text>
                 <View className="border-2 border-gray-300 rounded-lg mb-4">
                   <Picker
-                    selectedValue={editingProduct.tipo}
-                    onValueChange={(v) =>
-                      setEditingProduct({ ...editingProduct, tipo: v })
-                    }
+                    selectedValue={editingProduct.productType}
+                    onValueChange={(v) => {
+                        const newCategory = categoriasPorTipo[v][0];
+                        setEditingProduct({
+                            ...editingProduct,
+                            productType: v,
+                            category: newCategory
+                        });
+                    }}
                     style={{ height: 40 }}
                   >
                     <Picker.Item label="Producto de cocina" value="Producto de cocina" />
@@ -454,9 +591,22 @@ export default function InventarioScreen() {
                     }
                     style={{ height: 40 }}
                   >
-                    {categoriasPorTipo[editingProduct.tipo].map((cat) => (
+                    {categoriasPorTipo[editingProduct.productType].map((cat) => (
                       <Picker.Item key={cat} label={cat} value={cat} />
                     ))}
+                  </Picker>
+                </View>
+                <Text className="mb-2 font-bold">¿En el Menú?</Text>
+                <View className="border-2 border-gray-300 rounded-lg mb-4">
+                  <Picker
+                    selectedValue={editingProduct.inMenu ? "true" : "false"}
+                    onValueChange={(v) =>
+                      setEditingProduct({ ...editingProduct, inMenu: v === "true" })
+                    }
+                    style={{ height: 40 }}
+                  >
+                    <Picker.Item label="Sí" value="true" />
+                    <Picker.Item label="No" value="false" />
                   </Picker>
                 </View>
                 <TouchableOpacity
@@ -474,4 +624,4 @@ export default function InventarioScreen() {
       </Modal>
     </ScrollView>
   );
-}
+};

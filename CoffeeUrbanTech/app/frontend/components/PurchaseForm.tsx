@@ -1,21 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, Pressable } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import React, { useEffect, useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
+
+// Importa el tipo Product desde tu archivo de modelos de datos
+import { Product } from '../../firebaseData';
 
 type Props = {
-  products: { id: number; name: string; stock: number }[];
+  // products ahora es un array de tu tipo Product de Firebase
+  products: Product[];
+  // onAddPurchase espera un productId y supplierName, alineado con ComprasScreen
   onAddPurchase: (purchase: {
-    supplier: string;
-    product: string;
+    productId: string;
     quantity: number;
-    unitCost: number;
-    total: number;
+    supplierName?: string;
+    unitCost?: number;
   }) => void;
 };
 
 export default function PurchaseForm({ products, onAddPurchase }: Props) {
-  const [supplier, setSupplier] = useState("");
-  const [product, setProduct] = useState("");
+  const [supplierName, setSupplierName] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [total, setTotal] = useState<number | null>(null);
@@ -31,22 +35,22 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
   }, [quantity, unitCost]);
 
   const handleSubmit = () => {
-    if (!product) return;
+    if (!selectedProductId) return;
     const q = parseInt(quantity);
     const u = parseFloat(unitCost);
-    if (q <= 0 || u <= 0) return;
+    if (isNaN(q) || isNaN(u) || q <= 0 || u <= 0) return;
 
     onAddPurchase({
-      supplier,
-      product,
+      supplierName,
+      productId: selectedProductId,
       quantity: q,
       unitCost: u,
-      total: q * u,
     });
 
     setQuantity("");
     setUnitCost("");
-    setProduct("");
+    setSelectedProductId("");
+    setSupplierName("");
     setTotal(null);
   };
 
@@ -57,11 +61,11 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
       </Text>
 
       {/* Proveedor */}
-      <Text className="text-sm font-bold text-gray-700 mb-1">Compra</Text>
+      <Text className="text-sm font-bold text-gray-700 mb-1">Proveedor</Text>
       <View className="mb-4">
         <TextInput
-          value={supplier}
-          onChangeText={setSupplier}
+          value={supplierName}
+          onChangeText={setSupplierName}
           className="border border-gray-300 rounded-lg px-4 py-2 mb-4 text-sm"
           placeholder="Nombre del proveedor"
         />
@@ -71,14 +75,14 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
       <Text className="text-sm font-bold text-gray-700 mb-1">Producto</Text>
       <View className="border border-gray-300 rounded-lg mb-4">
         <Picker
-          selectedValue={product}
-          onValueChange={(value) => setProduct(value)}
+          selectedValue={selectedProductId}
+          onValueChange={(itemValue) => setSelectedProductId(String(itemValue))}
         >
           <Picker.Item label="Seleccionar producto" value="" />
           {products.map((p) => (
             <Picker.Item
               label={`${p.name} (Stock: ${p.stock})`}
-              value={p.name}
+              value={p.id}
               key={p.id}
             />
           ))}
@@ -127,4 +131,4 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
       </Pressable>
     </View>
   );
-}
+};

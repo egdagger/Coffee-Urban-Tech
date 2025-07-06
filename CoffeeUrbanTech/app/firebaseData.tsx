@@ -10,10 +10,10 @@ export type Product = {
   stock: number;
   category: string;
   productType: string;
-  suggestedPrice?: number;
+  suggestedPrice?: number | null;
   inMenu?: boolean;
-  createdAt?: Timestamp; // fecha_creacion
-  updatedAt?: Timestamp; // ultima_actualizacion
+  createdAt?: Timestamp | null; // fecha_creacion
+  updatedAt?: Timestamp | null; // ultima_actualizacion
 };
 
 export type PurchasedItem = {
@@ -23,7 +23,7 @@ export type PurchasedItem = {
   unitCost: number; // costo_unitario
 };
 
-export type Purchase= {
+export type Purchase = {
   id: string;
   purchaseDate: Timestamp; // fecha_compra/date
   supplierName: string;
