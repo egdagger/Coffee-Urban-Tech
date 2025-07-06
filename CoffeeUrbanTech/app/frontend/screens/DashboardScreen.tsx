@@ -1,53 +1,8 @@
+import { collection, getDocs, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { firestoreDb } from '../../../firebaseConfigWeb';
-
-// Modelos de Datos
-type Producto = {
-  id: string;
-  categoria: string;
-  costo_unitario: number;
-  descripcion: string;
-  en_menu: boolean;
-  fecha_creacion: any;
-  nombre: string;
-  precio_sugerido: number;
-  precio_venta: number;
-  stock: number;
-  tipo_producto: string;
-  ultima_actualizacion: any;
-};
-
-type ItemComprado = {
-  cantidad: number;
-  costo_unitario: number;
-  id_producto: string;
-  nombre_producto: string;
-};
-
-type Compra = {
-  id: string;
-  fecha_compra: any;
-  id_proveedor: string;
-  nombre_proveedor: string;
-  productos_comprados: ItemComprado[];
-  total_compra: number;
-};
-
-type ItemVendido = {
-  cantidad: number;
-  id_producto: string;
-  nombre_producto: string;
-  precio_venta: number;
-};
-
-type Venta = {
-  id: string;
-  estado: string;
-  fecha_venta: any;
-  productos_vendidos: ItemVendido[];
-  total_venta: number;
-};
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { db } from '../../../firebaseConfigWeb.js';
+import { Product, Purchase, Sale } from './../../firebaseData.js';
 
 type Activity = {
   type: "sale" | "purchase";
@@ -56,174 +11,144 @@ type Activity = {
   amount: number;
 };
 
-
 export default function DashboardScreen() {
-  const [ventas, setVentas] = useState<Venta[]>([]);
-  const [compras, setCompras] = useState<Compra[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
+  const [firebaseSales, setFirebaseSales] = useState<Sale[]>([]);
+  const [firebasePurchases, setFirebasePurchases] = useState<Purchase[]>([]);
+  const [firebaseProducts, setFirebaseProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
 
   useEffect(() => {
-    //Carga de 'Venta'
-    const ventasSubscriber = firestoreDb
-      .collection('Venta')
-      .onSnapshot(querySnapshot => {
-        const fetchedVentas: Venta[] = [];
-        querySnapshot.forEach(documentSnapshot => {
-          const data = documentSnapshot.data();
-          fetchedVentas.push({
-            id: documentSnapshot.id,
-            estado: data.estado || '',
-            fecha_venta: data.fecha_venta ? data.fecha_venta.toDate() : new Date(),
-            productos_vendidos: data.productos_vendidos || [],
-            total_venta: data.total_venta || 0,
-          });
-        });
-        setVentas(fetchedVentas);
-        checkAllLoaded();
-      }, err => {
-        console.error("Error:", err);
-        setError("No se cargaron las ventas.");
-        setLoading(false);
-      });
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    // Carga de 'Compra'
-    const comprasSubscriber = firestoreDb
-      .collection('Compra')
-      .onSnapshot(querySnapshot => {
-        const fetchedCompras: Compra[] = [];
-        querySnapshot.forEach(documentSnapshot => {
-          const data = documentSnapshot.data();
-          fetchedCompras.push({
-            id: documentSnapshot.id,
-            fecha_compra: data.fecha_compra ? data.fecha_compra.toDate() : new Date(),
-            id_proveedor: data.id_proveedor || '',
-            nombre_proveedor: data.nombre_proveedor || 'Desconocido',
-            productos_comprados: data.productos_comprados || [],
-            total_compra: data.total_compra || 0,
-          });
-        });
-        setCompras(fetchedCompras);
-        checkAllLoaded();
-      }, err => {
-        console.error("Error:", err);
-        setError("No se cargaron las compras.");
-        setLoading(false);
-      });
-
-    // Cargar 'Producto'
-    const productosSubscriber = firestoreDb
-      .collection('Producto')
-      .onSnapshot(querySnapshot => {
-        const fetchedProductos: Producto[] = [];
-        querySnapshot.forEach(documentSnapshot => {
-          const data = documentSnapshot.data();
-          fetchedProductos.push({
-            id: documentSnapshot.id,
-            categoria: data.categoria || '',
-            costo_unitario: data.costo_unitario || 0,
-            descripcion: data.descripcion || '',
-            en_menu: data.en_menu || false,
-            fecha_creacion: data.fecha_creacion ? data.fecha_creacion.toDate() : new Date(),
-            nombre: data.nombre || 'Sin Nombre',
-            precio_sugerido: data.precio_sugerido || 0,
-            precio_venta: data.precio_venta || 0,
+        //Productos
+        const productsSnapshot = await getDocs(collection(db, "products"));
+        const productsList: Product[] = productsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name || '',
+            description: data.description || '',
+            price: data.price || 0,
+            unitCost: data.unitCost || 0,
             stock: data.stock || 0,
-            tipo_producto: data.tipo_producto || '',
-            ultima_actualizacion: data.ultima_actualizacion ? data.ultima_actualizacion.toDate() : new Date(),
-          });
+            category: data.category || '',
+            productType: data.productType || '',
+            suggestedPrice: data.suggestedPrice || null,
+            inMenu: data.inMenu || false,
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
+            updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : null,
+          } as Product; // Casteo final
         });
-        setProductos(fetchedProductos);
-        checkAllLoaded();
-      }, err => {
-        console.error("Error :", err);
-        setError("No se cargaron los productos.");
-        setLoading(false);
-      });
+        setFirebaseProducts(productsList);
 
-    // Revisa todas las colecciones carguen
-    let loadedCount = 0;
-    const totalCollections = 3; // Compra+Venta+Producto
+        // Ventas
+        const thirtyDaysAgo = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+        const salesQuery = query(
+          collection(db, "sales"),
+          where("date", ">=", thirtyDaysAgo),
+          orderBy("date", "desc")
+        );
+        const salesSnapshot = await getDocs(salesQuery);
+        const salesList: Sale[] = salesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            date: data.date instanceof Timestamp ? data.date : Timestamp.fromDate(new Date()),
+            items: data.items || [],
+            total: data.total || 0,
+          } as Sale;
+        });
+        setFirebaseSales(salesList);
 
-    const checkAllLoaded = () => {
-      loadedCount++;
-      if (loadedCount >= totalCollections) {
+        // Compras
+        const purchasesQuery = query(
+          collection(db, "purchases"),
+          where("purchaseDate", ">=", thirtyDaysAgo),
+          orderBy("purchaseDate", "desc")
+        );
+        const purchasesSnapshot = await getDocs(purchasesQuery);
+        const purchasesList: Purchase[] = purchasesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            purchaseDate: data.purchaseDate instanceof Timestamp ? data.purchaseDate : Timestamp.fromDate(new Date()),
+            supplierName: data.supplierName || 'N/A',
+            items: data.items || [],
+            total: data.total || 0,
+          } as Purchase;
+        });
+        setFirebasePurchases(purchasesList);
+
+      } catch (err: any) {
+        setError("Error: " + err.message);
+      } finally {
         setLoading(false);
       }
     };
 
-    // Limpiar suscripciones al desmontar el componente
-    return () => {
-      ventasSubscriber();
-      comprasSubscriber();
-      productosSubscriber();
-    };
-  }, []); // Se ejecuta una sola vez al montar el componente
+    fetchDashboardData();
+  }, []);
 
-  // Actividad Reciente
+
   useEffect(() => {
-    if (ventas.length > 0 || compras.length > 0) {
-        const allActivity = [
-            ...ventas.map((venta) => ({
-                type: "sale" as const,
-                date: venta.fecha_venta.toISOString(),
-                description: `Venta #${venta.id.substring(0, 4)} - $${venta.total_venta.toFixed(2)}`,
-                amount: venta.total_venta,
-            })),
-            ...compras.map((compra) => ({
-                type: "purchase" as const,
-                date: compra.fecha_compra.toISOString(),
-                description: `Compra de ${compra.productos_comprados.length > 0 ? compra.productos_comprados[0].nombre_producto : 'Múltiples'} - $${compra.total_compra.toFixed(2)}`,
-                amount: compra.total_compra,
-            })),
-        ]
+    if (!loading && !error) {
+      const allActivity = [
+        ...firebaseSales.map((sale) => ({
+          type: "sale" as const,
+          date: sale.date instanceof Timestamp ? sale.date.toDate().toISOString() : new Date().toISOString(),
+          description: `Venta #${sale.id || 'N/A'} - $${sale.total.toFixed(2)}`,
+          amount: sale.total,
+        })),
+        ...firebasePurchases.map((purchase) => ({
+          type: "purchase" as const,
+          date: purchase.purchaseDate instanceof Timestamp ? purchase.purchaseDate.toDate().toISOString() : new Date().toISOString(),
+          description: `Compra de ${purchase.items.map(item => item.productName).join(', ')} - $${purchase.total.toFixed(2)}`,
+          amount: purchase.total,
+        })),
+      ]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5);
 
-        setRecentActivity(allActivity);
+      setRecentActivity(allActivity);
     }
-  }, [ventas, compras]);
+  }, [firebaseSales, firebasePurchases, loading, error]);
 
-  // Cálculos de dashboard
-  const today = new Date();
-  const todayDateString = today.toDateString();
 
-  const totalSalesToday = ventas.reduce((sum, venta) => {
-    const saleDate = venta.fecha_venta instanceof Date ? venta.fecha_venta : new Date(venta.fecha_venta);
-    return saleDate.toDateString() === todayDateString ? sum + venta.total_venta : sum;
-  }, 0);
+  const today = new Date().toDateString();
+  const totalSalesToday = firebaseSales.filter(
+    (sale) => sale.date instanceof Timestamp && sale.date.toDate().toDateString() === today
+  ).reduce((sum, sale) => sum + sale.total, 0);
 
-  const currentMonth = today.getMonth();
-  const monthPurchases = compras.filter((compra) => {
-    const purchaseDate = compra.fecha_compra instanceof Date ? compra.fecha_compra : new Date(compra.fecha_compra);
-    return purchaseDate.getMonth() === currentMonth && purchaseDate.getFullYear() === today.getFullYear();
-  });
-  const totalPurchasesMonth = monthPurchases.reduce(
-    (sum, purchase) => sum + purchase.total_compra,
-    0
-  );
+  const currentMonth = new Date().getMonth();
+  const totalPurchasesMonth = firebasePurchases.filter(
+    (purchase) => purchase.purchaseDate instanceof Timestamp && purchase.purchaseDate.toDate().getMonth() === currentMonth
+  ).reduce((sum, purchase) => sum + purchase.total, 0);
 
-  const lowStockItems = productos.filter((producto) => producto.stock < 10);
+  const lowStockItems = firebaseProducts.filter((product) => product.stock < 10);
 
-  // Renderizado condicional basado en loading y error
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View>
         <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>Cargando datos...</Text>
+        <Text>Cargando data...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTextTitle}>¡Error!</Text>
-        <Text style={styles.errorText}>{error}</Text>
-        <Text style={styles.errorText}>Revisar la conexión con la BD.</Text>
+      <View>
+        <Text className="text-red-600 text-lg mb-2">Error de Carga</Text>
+        <Text className="text-gray-700 text-base text-center">{error}</Text>
+        <Text className="text-gray-500 text-sm mt-2">
+          Error en la carga de Firebase.
+        </Text>
       </View>
     );
   }
@@ -239,7 +164,7 @@ export default function DashboardScreen() {
         </View>
         <View className="bg-gray-100 p-5 rounded-xl items-center w-[47%] mb-4 border-l-4 border-amber-800">
           <Text className="text-amber-800 text-2xl font-bold mb-1">
-            {productos.length}
+            {firebaseProducts.length}
           </Text>
           <Text className="text-gray-600 text-sm">Productos</Text>
         </View>
@@ -300,39 +225,4 @@ export default function DashboardScreen() {
       </View>
     </ScrollView>
   );
-}
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#555',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fee',
-    borderRadius: 8,
-    margin: 20,
-  },
-  errorTextTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#d32f2f',
-    marginBottom: 10,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#d32f2f',
-    textAlign: 'center',
-    marginBottom: 5,
-  },
-});
+};
