@@ -53,7 +53,7 @@ export interface User {
   phone: string;
   role: "admin" | "cajero";
   isActive: boolean;
-  password: string; // Campo agregado para la contraseña
+  password: string;
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
 }

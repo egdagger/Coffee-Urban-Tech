@@ -187,11 +187,11 @@ export function BottomNavigation({onTabChange}: Props) {
                 left: 0,
                 right: 0,
                 backgroundColor: "transparent",
-                paddingBottom: Platform.OS === "ios" ? 34 : 0, // Safe area para iOS
+                paddingBottom: Platform.OS === "ios" ? 34 : 0,
             }}
         >
             <View style={{backgroundColor: "white", overflow: "hidden"}}>
-                {/* Onda animada en la parte superior */}
+
                 <MovingWave/>
 
                 <LinearGradient

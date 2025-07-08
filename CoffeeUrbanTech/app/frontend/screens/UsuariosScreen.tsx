@@ -84,7 +84,6 @@ export default function UsuariosScreen() {
         confirmPassword: "",
     });
 
-    // Estado para el modal de edición (incluye contraseña)
     const [editUserForm, setEditUserForm] = useState({
         name: "",
         email: "",
@@ -93,7 +92,7 @@ export default function UsuariosScreen() {
         isActive: true,
         password: "",
         confirmPassword: "",
-        changePassword: false, // Flag para saber si quiere cambiar la contraseña
+        changePassword: false,
     });
 
     useEffect(() => {
@@ -127,14 +126,14 @@ export default function UsuariosScreen() {
     const validatePhone = (phone: string) => /^[\d\-\(\)\s\+]+$/.test(phone) && phone.length >= 10;
     const validatePassword = (password: string) => {
         if (password.length < 6) return false;
-        if (!/(?=.*[a-z])/.test(password)) return false; // Al menos una minúscula
-        if (!/(?=.*[A-Z])/.test(password)) return false; // Al menos una mayúscula
-        if (!/(?=.*\d)/.test(password)) return false; // Al menos un número
+        if (!/(?=.*[a-z])/.test(password)) return false;
+        if (!/(?=.*[A-Z])/.test(password)) return false;
+        if (!/(?=.*\d)/.test(password)) return false;
         return true;
     };
 
     const handleAddUser = async () => {
-        // Validaciones básicas
+
         if (!newUser.name || !newUser.email || !newUser.phone || !newUser.password || !newUser.confirmPassword) {
             showCustomAlert("Error", "Completa todos los campos");
             return;
@@ -167,7 +166,7 @@ export default function UsuariosScreen() {
                 phone: newUser.phone,
                 role: newUser.role,
                 isActive: newUser.isActive,
-                password: newUser.password, // En producción, deberías hashear la contraseña
+                password: newUser.password,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             };
@@ -191,7 +190,7 @@ export default function UsuariosScreen() {
     const handleEditUser = async () => {
         if (!editingUser) return;
 
-        // Validaciones básicas
+
         if (!editUserForm.name || !editUserForm.email || !editUserForm.phone) {
             showCustomAlert("Error", "Completa todos los campos obligatorios");
             return;
@@ -207,7 +206,7 @@ export default function UsuariosScreen() {
             return;
         }
 
-        // Validar contraseña si se quiere cambiar
+
         if (editUserForm.changePassword) {
             if (!editUserForm.password || !editUserForm.confirmPassword) {
                 showCustomAlert("Error", "Completa los campos de contraseña");
@@ -235,9 +234,9 @@ export default function UsuariosScreen() {
                 updatedAt: serverTimestamp(),
             };
 
-            // Solo actualizar contraseña si se marcó el checkbox
+
             if (editUserForm.changePassword) {
-                updateData.password = editUserForm.password; // En producción, hashear la contraseña
+                updateData.password = editUserForm.password;
             }
 
             await updateDoc(doc(db, "users", editingUser.id), updateData);
@@ -358,7 +357,7 @@ export default function UsuariosScreen() {
                 ))}
             </View>
 
-            {/* Alert personalizado */}
+
             <CustomAlert
                 visible={showAlert}
                 title={alertConfig.title}
@@ -366,7 +365,7 @@ export default function UsuariosScreen() {
                 onClose={() => setShowAlert(false)}
             />
 
-            {/* Modal confirmación de eliminación */}
+
             <Modal visible={!!deleteId} transparent animationType="fade">
                 <View className="flex-1 bg-black/50 justify-center items-center">
                     <View className="bg-white p-6 rounded-xl w-11/12 max-w-md">
@@ -384,7 +383,7 @@ export default function UsuariosScreen() {
                 </View>
             </Modal>
 
-            {/* Modal Agregar Usuario */}
+
             <Modal visible={showAddModal} transparent animationType="fade">
                 <View className="flex-1 bg-black/50 justify-center items-center">
                     <ScrollView contentContainerStyle={{flexGrow: 1, justifyContent: 'center', alignItems: 'center'}}
@@ -479,7 +478,7 @@ export default function UsuariosScreen() {
                 </View>
             </Modal>
 
-            {/* Modal Editar Usuario */}
+
             {editingUser && (
                 <Modal visible={!!editingUser} transparent animationType="fade">
                     <View className="flex-1 bg-black/50 justify-center items-center">
@@ -523,7 +522,7 @@ export default function UsuariosScreen() {
                                     className="border p-3 mb-3 rounded-lg border-gray-300"
                                 />
 
-                                {/* Checkbox para cambiar contraseña */}
+
                                 <TouchableOpacity
                                     onPress={() => setEditUserForm({
                                         ...editUserForm,
