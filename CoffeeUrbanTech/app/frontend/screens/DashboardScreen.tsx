@@ -1,8 +1,8 @@
 import { collection, getDocs, orderBy, query, Timestamp, where } from 'firebase/firestore';
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
-import { db } from '../../../firebaseConfigWeb.js';
-import { Product, Purchase, Sale } from './../../firebaseData.js';
+import { db } from '@/firebaseConfigWeb';
+import { Product, Purchase, Sale } from '@/app/firebaseData';
 
 type Activity = {
   type: "sale" | "purchase";

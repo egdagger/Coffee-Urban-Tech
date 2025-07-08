@@ -39,3 +39,4 @@ yarn-error.*
 # firebase info
 firebaseConfigWeb.js
 app-example
+/.idea/

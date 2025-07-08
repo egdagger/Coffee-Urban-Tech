@@ -45,3 +45,15 @@ export type Sale = {
   items: SoldItem[];
   total: number;
 };
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: "admin" | "cajero";
+  isActive: boolean;
+  password: string; // Campo agregado para la contraseña
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+}
