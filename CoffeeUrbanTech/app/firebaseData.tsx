@@ -44,6 +44,7 @@ export type Sale = {
   date: Timestamp;
   items: SoldItem[];
   total: number;
+  invoiceCode?: string; // Nuevo campo para código de factura
 };
 
 export interface User {
