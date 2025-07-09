@@ -12,18 +12,16 @@ import {
   collection,
   query,
   onSnapshot,
-  addDoc,
-  updateDoc,
   doc,
   orderBy,
   limit,
   Timestamp,
   writeBatch
 } from 'firebase/firestore';
-import { db } from '@/firebaseConfigWeb'; // Ajusta la ruta según tu estructura
+import { db } from '@/firebaseConfigWeb';
 
 // Importar tipos de datos
-import { Product, Sale, SoldItem } from '../../firebaseData'; // Ajusta la ruta según tu estructura
+import { Product, Sale, SoldItem } from '../../firebaseData';
 
 interface SaleItem {
   productId: string;
@@ -41,7 +39,6 @@ const VentasScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [savingSale, setSavingSale] = useState(false);
 
-  // Cargar productos desde Firebase
   useEffect(() => {
     const productsQuery = query(collection(db, 'products'));
     const unsubscribe = onSnapshot(productsQuery, (snapshot) => {
@@ -60,7 +57,6 @@ const VentasScreen: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Cargar historial de ventas desde Firebase
   useEffect(() => {
     const salesQuery = query(
         collection(db, 'sales'),
@@ -158,7 +154,6 @@ const VentasScreen: React.FC = () => {
     setCurrentSale(updatedSale);
   };
 
-  // Función para generar código de factura
   const generateInvoiceCode = () => {
     const now = new Date();
     const year = now.getFullYear().toString().slice(-2);
@@ -183,7 +178,6 @@ const VentasScreen: React.FC = () => {
       const total = currentSale.reduce((sum, item) => sum + item.subtotal, 0);
       const invoiceCode = generateInvoiceCode();
 
-      // Preparar los items para Firebase
       const saleItems: SoldItem[] = currentSale.map(item => ({
         productId: item.productId,
         productName: item.name,
@@ -199,14 +193,11 @@ const VentasScreen: React.FC = () => {
         invoiceCode: invoiceCode,
       };
 
-      // Usar batch para operaciones atómicas
       const batch = writeBatch(db);
 
-      // Agregar la venta
       const saleRef = doc(collection(db, 'sales'));
       batch.set(saleRef, saleData);
 
-      // Actualizar el stock de los productos
       currentSale.forEach(item => {
         const product = products.find(p => p.id === item.productId);
         if (product) {
@@ -218,7 +209,6 @@ const VentasScreen: React.FC = () => {
         }
       });
 
-      // Ejecutar todas las operaciones
       await batch.commit();
 
       setCurrentSale([]);
@@ -320,7 +310,6 @@ const VentasScreen: React.FC = () => {
               )}
             </View>
 
-            {/* Sale Items */}
             {currentSale.length > 0 && (
                 <View className="mb-5">
                   <Text className="text-amber-800 text-lg font-bold mb-4 border-b border-gray-200 pb-2">
@@ -383,7 +372,6 @@ const VentasScreen: React.FC = () => {
                 </View>
             )}
 
-            {/* Total Section */}
             {currentSale.length > 0 && (
                 <View className="bg-amber-800 p-6 rounded-2xl mb-5">
                   <Text className="text-white text-3xl font-bold mb-5">
@@ -420,7 +408,6 @@ const VentasScreen: React.FC = () => {
             )}
           </View>
 
-          {/* Historial de Ventas */}
           <View>
             <Text className="text-amber-800 text-xl font-bold mb-5 border-b-2 border-gray-100 pb-3">
               📊 Historial de Ventas
