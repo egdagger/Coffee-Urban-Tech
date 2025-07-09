@@ -89,7 +89,6 @@ function MovingWave() {
     const amplitude = 10; // Profundidad de la onda
     const frequency = 1; // Número de ondas completas en el ancho
 
-    // Calcular puntos basado en el ancho de pantalla para mejor rendimiento
     const points = Math.max(100, Math.min(300, screenW / 2)); // Densidad adaptativa
 
     const offset = useSharedValue(0);
@@ -105,24 +104,20 @@ function MovingWave() {
     const animatedProps = useAnimatedProps(() => {
         'worklet';
 
-        // Versión más simple y fluida
         let path = `M0,${height / 2}`;
 
-        // Usar menos puntos pero con mejor distribución
         const step = screenW / points;
 
         for (let i = 0; i <= points; i++) {
             const x = i * step;
-            const normalizedX = x / screenW; // Valor entre 0 y 1
+            const normalizedX = x / screenW;
 
             const y = height / 2 +
                 amplitude * Math.sin(frequency * 2 * Math.PI * normalizedX + offset.value);
 
-            // Usar líneas simples pero con más precisión
             path += ` L${x},${y}`;
         }
 
-        // Cierra el path para rellenar debajo de la onda
         path += ` L${screenW},${height} L0,${height} Z`;
         return { d: path };
     });
