@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "824400176290",
+    "project_id": "coffeeurbantech",
+    "storage_bucket": "coffeeurbantech.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:824400176290:android:8b64f5235b317fd7a7a3fb",
+        "android_client_info": {
+          "package_name": "coffee.urban.tech"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvDzkYlJ8Cp2fH_5AevvSA2_vndoEAkx4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

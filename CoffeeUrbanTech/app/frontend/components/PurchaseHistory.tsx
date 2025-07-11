@@ -1,17 +1,11 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { Pressable, Text, View } from "react-native";
+
+import { Purchase } from '../../firebaseData'; // Ajusta la ruta si es necesario
 
 type Props = {
-  purchases: {
-    id: number;
-    supplier: string;
-    product: string;
-    quantity: number;
-    unitCost: number;
-    total: number;
-    date: string;
-  }[];
-  onDelete: (id: number) => void;
+  purchases: Purchase[];
+  onDelete: (id: string) => void; // Un comentario para tus compañeros sobre el cambio de tipo de ID
 };
 
 export default function PurchaseHistory({ purchases, onDelete }: Props) {
@@ -32,6 +26,7 @@ export default function PurchaseHistory({ purchases, onDelete }: Props) {
         </View>
       ) : (
         <>
+          {/* Ordenar por fecha para mostrar las más recientes primero (aunque ya lo hacemos en ComprasScreen) */}
           {purchases.map((p) => (
             <View
               key={p.id}
@@ -40,25 +35,26 @@ export default function PurchaseHistory({ purchases, onDelete }: Props) {
               <View className="flex-row justify-between items-start">
                 <View className="flex-1">
                   <Text className="text-[#8B4513] font-bold mb-1">
-                    Compra #{p.id}
+                    Compra # {p.id.substring(0, 8)}... {/* Mostrar solo parte del ID para legibilidad */}
                   </Text>
                   <Text className="text-xs text-gray-700">
-                    Producto: {p.product}
+                    Proveedor: {p.supplierName}
                   </Text>
-                  <Text className="text-xs text-gray-700">
-                    Proveedor: {p.supplier}
+                  <Text className="text-xs text-gray-700 mb-2">
+                    Fecha: {p.purchaseDate.toDate().toLocaleString()} {/* Convierte Timestamp a Date */}
                   </Text>
-                  <Text className="text-xs text-gray-700">
-                    Cantidad: {p.quantity}
+
+                  {/* Mostrar los items comprados dentro de esta compra */}
+                  <Text className="text-xs font-bold text-gray-700 mt-2">
+                    Productos:
                   </Text>
-                  <Text className="text-xs text-gray-700">
-                    Costo Unitario: ${p.unitCost.toFixed(2)}
-                  </Text>
-                  <Text className="text-xs text-gray-700">
-                    Fecha: {new Date(p.date).toLocaleString()}
-                  </Text>
+                  {p.items.map((item, index) => (
+                    <Text key={index} className="text-xs text-gray-700 ml-2">
+                      • {item.productName} (x{item.quantity}) - ${item.unitCost.toFixed(2)} c/u
+                    </Text>
+                  ))}
                 </View>
-                <Text className="text-red-600 font-bold ml-4">
+                <Text className="text-red-600 font-bold ml-4 text-lg">
                   ${p.total.toFixed(2)}
                 </Text>
               </View>
