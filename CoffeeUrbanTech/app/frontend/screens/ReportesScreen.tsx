@@ -636,11 +636,15 @@ export default function ReportesScreen() {
               marginBottom: 16,
             }}
           >
-            <Picker selectedValue={period} onValueChange={setPeriod}>
+            <Picker
+              selectedValue={period}
+              onValueChange={setPeriod}
+              mode="dropdown"
+              style={{ color: "#222", fontWeight: "bold" }} // <-- color gris oscuro
+            >
               <Picker.Item label="Hoy" value="today" />
               <Picker.Item label="Esta Semana" value="week" />
               <Picker.Item label="Este Mes" value="month" />
-              <Picker.Item label="Este Año" value="year" />
             </Picker>
           </View>
           <Pressable

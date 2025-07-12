@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 // Importa el tipo Product desde tu archivo de modelos de datos
-import { Product } from '../../firebaseData';
+import { Product } from "../../firebaseData";
 
 type Props = {
   // products ahora es un array de tu tipo Product de Firebase
@@ -68,6 +68,7 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
           onChangeText={setSupplierName}
           className="border border-gray-300 rounded-lg px-4 py-2 mb-4 text-sm"
           placeholder="Nombre del proveedor"
+          placeholderTextColor="#888"
         />
       </View>
 
@@ -77,13 +78,16 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
         <Picker
           selectedValue={selectedProductId}
           onValueChange={(itemValue) => setSelectedProductId(String(itemValue))}
+          mode="dropdown"
+          style={{ color: "#222", fontWeight: "bold" }}
         >
-          <Picker.Item label="Seleccionar producto" value="" />
+          <Picker.Item label="Seleccionar producto" value="" color="#888" />
           {products.map((p) => (
             <Picker.Item
               label={`${p.name} (Stock: ${p.stock})`}
               value={p.id}
               key={p.id}
+              color="#222"
             />
           ))}
         </Picker>
@@ -97,6 +101,7 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
         keyboardType="numeric"
         className="border border-gray-300 rounded-lg px-4 py-2 mb-4 text-sm"
         placeholder="Ej: 10"
+        placeholderTextColor="#888"
       />
 
       {/* Costo Unitario */}
@@ -109,6 +114,7 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
         keyboardType="numeric"
         className="border border-gray-300 rounded-lg px-4 py-2 mb-4 text-sm"
         placeholder="Ej: 1.50"
+        placeholderTextColor="#888"
       />
 
       {/* Total */}
@@ -131,4 +137,4 @@ export default function PurchaseForm({ products, onAddPurchase }: Props) {
       </Pressable>
     </View>
   );
-};
+}

@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "824400176290",
+    "firebase_url": "https://coffeeurbantech-default-rtdb.firebaseio.com",
     "project_id": "coffeeurbantech",
     "storage_bucket": "coffeeurbantech.firebasestorage.app"
   },
